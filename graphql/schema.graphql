@@ -1,0 +1,82 @@
+"A date string with format `Y-m-d`, e.g. `2011-05-23`."
+scalar Date @scalar(class: "Nuwave\\Lighthouse\\Schema\\Types\\Scalars\\Date")
+
+"A datetime string with format `Y-m-d H:i:s`, e.g. `2018-05-23 13:43:32`."
+scalar DateTime @scalar(class: "Nuwave\\Lighthouse\\Schema\\Types\\Scalars\\DateTime")
+
+"A datetime and timezone string in ISO 8601 format `Y-m-dTH:i:sO`, e.g. `2020-04-20T13:53:12+02:00`."
+scalar DateTimeTz @scalar(class: "Nuwave\\Lighthouse\\Schema\\Types\\Scalars\\DateTimeTz")
+
+type Query {
+    users: [User!]! @paginate(defaultCount: 10) @can(ability: "super_admin")
+    user(id: ID @eq): User @find
+    me: User @auth
+}
+
+type User {
+    id: ID!
+    name: String!
+    username: String!
+    email: String!
+    phone: String!
+    created_at: DateTime!
+    updated_at: DateTime!
+}
+
+type AuthPayload {
+    access_token: String
+    expires_in: Int
+    token_type: String
+    user: User!
+}
+
+type MessageResponse {
+    status: String!
+    message: String
+}
+
+type Mutation {
+    createUser(input: CreateUser! @spread): MessageResponse! @field(resolver: "App\\GraphQL\\Mutations\\Auth\\Register")
+    loginUser(input: LoginCred @spread): AuthPayload! @field(resolver: "App\\GraphQL\\Mutations\\Auth\\Login")
+    verifyEmail(input: VerifyEmailInput! @spread): AuthPayload! @field(resolver: "App\\GraphQL\\Mutations\\Auth\\EmailVerification")
+    resendVerifyEmail(input: ForgotPasswordInput! @spread): MessageResponse! @field(resolver: "App\\GraphQL\\Mutations\\Auth\\EmailVerification@resend")
+    changePassword(input: UpdatePassword! @spread): MessageResponse! @field(resolver: "App\\GraphQL\\Mutations\\Auth\\ChangePassword") @guard(with: ["api"])
+    forgotPassword(input: ForgotPasswordInput! @spread): MessageResponse! @field(resolver: "App\\GraphQL\\Mutations\\Auth\\ForgotPassword")
+    updateForgottenPassword(input: NewPasswordWithCodeInput @spread): MessageResponse! @field(resolver: "App\\GraphQL\\Mutations\\Auth\\ResetPassword")
+}
+
+input CreateUser {
+    name: String!
+    username: String! @rules(apply: ["unique:users,username"])
+    email: String! @rules(apply: ["unique:users,email"])
+    phone: String!  @rules(apply: ["min:7", "max:12"])
+    password: String! @rules(apply: ["required", "confirmed", "min:8"])
+    password_confirmation: String!
+    user_type: String!
+}
+
+input LoginCred {
+    login: String!
+    password: String!
+}
+
+input NewPasswordWithCodeInput {
+    email: String! @rules(apply: ["required", "email"])
+    token: String! @rules(apply: ["required", "string"])
+    password: String! @rules(apply: ["required", "confirmed", "min:8"])
+    password_confirmation: String!
+}
+
+input UpdatePassword {
+    old_password: String!
+    password: String! @rules(apply: ["required", "confirmed", "min:8"])
+    password_confirmation: String!
+}
+
+input ForgotPasswordInput {
+    email: String! @rules(apply: ["required", "email"])
+}
+
+input VerifyEmailInput {
+    token: String!
+}
